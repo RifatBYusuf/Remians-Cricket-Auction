@@ -1,0 +1,5 @@
+streamlit==1.50.0
+supabase==2.31.0
+Pillow==11.3.0
+pandas==2.3.2
+pytest==8.4.2
