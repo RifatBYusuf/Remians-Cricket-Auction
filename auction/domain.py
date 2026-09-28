@@ -15,13 +15,13 @@ class AuctionError(ValueError):
 
 
 def parse_bdt(value: object) -> int:
-    """Return a positive, whole-number BDT amount."""
+    """Return a positive, whole-number AUD amount."""
     try:
         amount = Decimal(str(value))
     except (InvalidOperation, ValueError) as exc:
         raise AuctionError("Price must be a valid number.") from exc
     if not amount.is_finite() or amount != amount.to_integral_value():
-        raise AuctionError("Price must be a whole number of BDT.")
+        raise AuctionError("Price must be a whole number of AUD.")
     if amount <= 0:
         raise AuctionError("Price must be greater than zero.")
     if amount > Decimal("999999999999"):

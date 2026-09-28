@@ -7,7 +7,7 @@ A projector-ready, three-team cricket auction built with Python, Streamlit, Supa
 - Public 65/35 auction display with the supplied Remians Australia branding
 - Three persistent teams, each initialized once with **৳1,000,000 BDT**
 - Protected admin console at `/?view=admin`
-- Single/multiple player-card uploads, generated cards from photos, image replacement, and CSV import
+- Single/multiple predesigned player-card uploads with automatically assigned unique IDs
 - Available, sold, and unsold player states
 - Atomic, row-locked, idempotent sale processing and atomic undo/refund
 - Team rosters, transaction history, and CSV export

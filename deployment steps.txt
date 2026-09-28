@@ -1,0 +1,71 @@
+Your app is ready for Streamlit Community Cloud. Supabase is already deployed, so you mainly need to upload the code to GitHub and connect it to Streamlit.
+
+### 1\. Push the project to GitHub
+
+Create a new empty GitHub repository, then run from `D:\Remian`:
+
+```
+git add .
+git commit -m "Deploy cricket auction"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
+git push -u origin main
+```
+
+If an `origin` remote already exists, skip the `git remote add` command.
+
+Your real secrets are excluded by `.gitignore`, so `.streamlit/secrets.toml` will not be uploaded.
+
+### 2\. Create the Streamlit app
+
+1. Sign in at [Streamlit Community Cloud](<https://share.streamlit.io/>) using GitHub.
+2. Click **Create app**.
+3. Select your repository.
+4. Choose branch `main`.
+5. Set the entry-point file to:
+
+```
+app.py
+```
+
+6. Open **Advanced settings** and select Python 3.12 if requested. The repository already contains `runtime.txt` and `requirements.txt`.
+7. Do not deploy until you add the secrets. See Streamlit’s [deployment guide](<https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy>).
+
+### 3\. Add Supabase secrets
+
+In **Advanced settings → Secrets**, paste:
+
+```
+SUPABASE_URL = "https://qltnjhqxqzhugubewuln.supabase.co"
+SUPABASE_ANON_KEY = "PASTE_YOUR_SUPABASE_ANON_KEY_HERE"
+DEMO_MODE = false
+```
+
+Get the anon/publishable key from:
+
+**Supabase Dashboard → Project Settings → API Keys**
+
+Use the public **anon/publishable key**, never the `service_role` or secret key. Streamlit documents this under [Secrets management](<https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management>).
+
+### 4\. Deploy and share
+
+Click **Deploy**. After it finishes, you’ll receive a URL similar to:
+
+```
+https://your-app-name.streamlit.app
+```
+
+Use:
+
+- Public auction: `https://your-app-name.streamlit.app`
+- Admin console: `https://your-app-name.streamlit.app/?view=admin`
+
+Ensure the app’s sharing/visibility setting permits public access. Only people with the Supabase administrator email and password can use the admin console.
+
+Future changes deploy automatically after:
+
+```
+git add .
+git commit -m "Update auction app"
+git push
+```

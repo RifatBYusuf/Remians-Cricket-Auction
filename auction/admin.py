@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 from datetime import datetime, timezone
-from io import StringIO
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -11,12 +9,9 @@ import pandas as pd
 import streamlit as st
 
 from auction.db import DatabaseError, require_admin_session, upload_asset
-from auction.domain import AuctionError, parse_bdt, validate_sale
-from auction.images import make_player_card, slug, validate_image
+from auction.domain import AuctionError, validate_sale
+from auction.images import slug, validate_image
 from auction.ui import brand_header, money
-
-
-TEMPLATE = "player_id,name,playing_role,base_price\nRA-001,Sample Batter,Top-order batter,50000\nRA-002,Sample Bowler,Right-arm fast,40000\n"
 
 
 def _flash(kind: str, text: str) -> None:
@@ -46,11 +41,13 @@ def _error(exc: Exception) -> str:
 
 def login_screen(client: Any) -> bool:
     st.subheader("Administrator sign in")
-    st.caption("Use the Supabase Auth account that was added to `admin_users`.")
-    with st.form("admin-login"):
-        email = st.text_input("Email", autocomplete="email")
-        password = st.text_input("Password", type="password", autocomplete="current-password")
-        submitted = st.form_submit_button("Sign in", type="primary", use_container_width=True)
+    _, login_column, _ = st.columns([1, 2, 1])
+    with login_column:
+        st.caption("Use the Supabase Auth account that was added to `admin_users`.")
+        with st.form("admin-login"):
+            email = st.text_input("Email", autocomplete="email")
+            password = st.text_input("Password", type="password", autocomplete="current-password")
+            submitted = st.form_submit_button("Sign in", type="primary", use_container_width=True)
     if submitted:
         try:
             st.session_state["admin_identity"] = require_admin_session(client, email.strip(), password)
@@ -88,19 +85,19 @@ def render_admin(client: Any) -> None:
         return
 
     if not teams:
-        st.warning("This project has no auction yet. Create it once to initialize exactly three teams at ৳1,000,000 each.")
+        st.warning("This project has no auction yet. Create it once to initialize exactly three teams at $1,000,000 AUD each.")
         if st.button("Create auction", type="primary"):
             try:
                 client.rpc("create_auction").execute()
-                _flash("success", "Auction created with three teams and ৳1,000,000 per team.")
+                _flash("success", "Auction created with three teams and $1,000,000 AUD per team.")
                 st.rerun()
             except Exception as exc:
                 st.error(_error(exc))
         return
 
     current_id = state_rows[0].get("current_player_id") if state_rows else None
-    auction_tab, players_tab, teams_tab, history_tab = st.tabs(
-        ["Auction control", "Players & cards", "Teams", "History & export"]
+    auction_tab, players_tab, teams_tab, history_tab, reset_tab = st.tabs(
+        ["Auction control", "Players & cards", "Teams", "History & export", "Reset"]
     )
     with auction_tab:
         _auction_control(client, players, teams, current_id)
@@ -110,6 +107,8 @@ def render_admin(client: Any) -> None:
         _team_management(client, teams, players)
     with history_tab:
         _history(client)
+    with reset_tab:
+        _reset_auction(client)
 
 
 def _set_current(client: Any, player_id: str) -> None:
@@ -124,45 +123,53 @@ def _set_current(client: Any, player_id: str) -> None:
 def _auction_control(client: Any, players: list[dict], teams: list[dict], current_id: str | None) -> None:
     st.subheader("Live auction control")
     if not players:
-        st.info("Add or import players before starting the auction.")
+        st.info("Upload player cards before starting the auction.")
         return
+    st.markdown("#### 1. Choose the player to show")
+    st.caption("Select a player, then put that card on the audience display.")
     ids = [p["id"] for p in players]
     index = ids.index(current_id) if current_id in ids else 0
-    selected_id = st.selectbox(
+    select_col, _ = st.columns([3, 2])
+    selected_id = select_col.selectbox(
         "Select player",
         ids,
         index=index,
         format_func=lambda pid: next(f"{p['player_code']} — {p['name']} [{p['status']}]" for p in players if p["id"] == pid),
     )
-    prev_col, show_col, next_col = st.columns([1, 2, 1])
-    if prev_col.button("← Previous", disabled=index <= 0, use_container_width=True):
+    prev_col, show_col, next_col, _ = st.columns([1, 1.4, 1, 4])
+    if prev_col.button("← Previous", disabled=index <= 0):
         _set_current(client, ids[index - 1])
-    if show_col.button("Show selected player", type="primary", use_container_width=True):
+    if show_col.button("Show selected", type="primary"):
         _set_current(client, selected_id)
-    if next_col.button("Next →", disabled=index >= len(ids) - 1, use_container_width=True):
+    if next_col.button("Next →", disabled=index >= len(ids) - 1):
         _set_current(client, ids[index + 1])
 
     current = next((p for p in players if p["id"] == current_id), None)
     if not current:
-        st.info("Choose a player and select “Show selected player” to put them on the audience display.")
+        st.info("Choose a player and select “Show selected” to put the card on the audience display.")
         return
     st.divider()
-    st.markdown(f"### {current['name']} · `{current['player_code']}`")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Status", current["status"].title())
-    c2.metric("Role", current.get("playing_role") or "—")
-    c3.metric("Base price", money(current.get("base_price")) if current.get("base_price") else "—")
+    st.markdown("#### 2. Record the auction result")
+    st.markdown(f"**Current player:** {current['name']} · `{current['player_code']}`")
+    summary_col, _ = st.columns([3, 2])
+    with summary_col:
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Status", current["status"].title())
+        c2.metric("Role", current.get("playing_role") or "—")
+        c3.metric("Base price", money(current.get("base_price")) if current.get("base_price") else "—")
     if current["status"] == "sold":
         st.success(f"Sold to {current['winning_team_name']} for {money(current['final_price'])}. This remains on the public display until you select another player.")
     else:
-        with st.form("confirm-sale", clear_on_submit=False):
-            team_id = st.selectbox(
-                "Winning team",
-                [t["id"] for t in teams],
-                format_func=lambda tid: next(f"{t['name']} — {money(t['budget_remaining'])} remaining" for t in teams if t["id"] == tid),
-            )
-            price = st.number_input("Final auction price (BDT)", min_value=1, step=1, value=int(current.get("base_price") or 1))
-            confirm = st.form_submit_button("Confirm sale", type="primary", use_container_width=True)
+        sale_col, _ = st.columns([3, 2])
+        with sale_col:
+            with st.form("confirm-sale", clear_on_submit=False):
+                team_id = st.selectbox(
+                    "Winning team",
+                    [t["id"] for t in teams],
+                    format_func=lambda tid: next(f"{t['name']} — {money(t['budget_remaining'])} remaining" for t in teams if t["id"] == tid),
+                )
+                price = st.number_input("Final auction price (AUD)", min_value=1, step=1, value=int(current.get("base_price") or 1))
+                confirm = st.form_submit_button("Confirm sale", type="primary")
         if confirm:
             team = next(t for t in teams if t["id"] == team_id)
             try:
@@ -180,7 +187,7 @@ def _auction_control(client: Any, players: list[dict], teams: list[dict], curren
                 st.error(str(exc))
             except Exception as exc:
                 st.error(_error(exc))
-        if st.button("Mark player unsold", use_container_width=True):
+        if st.button("Mark player unsold"):
             try:
                 client.rpc("mark_player_unsold", {"p_player_id": current["id"]}).execute()
                 _flash("success", f"{current['name']} marked unsold. You can select and sell this player later.")
@@ -188,7 +195,8 @@ def _auction_control(client: Any, players: list[dict], teams: list[dict], curren
             except Exception as exc:
                 st.error(_error(exc))
     st.divider()
-    st.markdown("#### Undo last sale")
+    st.markdown("#### Need to correct a mistake?")
+    st.caption("Undo only the most recently confirmed sale.")
     undo_confirm = st.checkbox("I understand this refunds the team and restores the player's previous status.")
     if st.button("Undo last sale", disabled=not undo_confirm):
         try:
@@ -208,157 +216,88 @@ def _upload(client: Any, uploaded: Any, folder: str, key: str) -> str:
     return upload_asset(client, "auction-assets", path, content, uploaded.type)
 
 
+def _new_player_code() -> str:
+    """Return a user-facing identifier without needing a database round trip."""
+    return f"PLAYER-{uuid4().hex[:12].upper()}"
+
+
+def _player_label(filename: str, player_code: str) -> str:
+    """Use the card filename as an internal label when no details are entered."""
+    return Path(filename).stem.strip() or player_code
+
+
 def _player_management(client: Any, players: list[dict]) -> None:
-    st.subheader("Player cards and details")
-    upload_tab, create_tab, edit_tab, csv_tab = st.tabs(["Upload cards", "Create card", "Edit player", "CSV import"])
-    with upload_tab:
-        st.caption("Upload one or many predesigned cards. Every image is explicitly associated with a unique player ID and name.")
-        files = st.file_uploader("Predesigned player cards", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=True)
-        if files:
-            with st.form("multi-card-form"):
-                mappings = []
-                for number, file in enumerate(files, 1):
-                    st.markdown(f"**{file.name}**")
-                    a, b, c = st.columns([1, 2, 2])
-                    code = a.text_input("Unique player ID", key=f"card-code-{number}-{file.name}")
-                    name = b.text_input("Player name", key=f"card-name-{number}-{file.name}")
-                    role = c.text_input("Playing role", key=f"card-role-{number}-{file.name}")
-                    mappings.append((file, code, name, role))
-                save = st.form_submit_button("Upload and save all cards", type="primary")
-            if save:
-                errors = []
-                codes = [m[1].strip() for m in mappings]
-                if any(not m[1].strip() or not m[2].strip() for m in mappings):
-                    errors.append("Every card needs a unique player ID and player name.")
-                if len(codes) != len(set(codes)):
-                    errors.append("Player IDs must be unique within this upload.")
-                for file, _, _, _ in mappings:
-                    try:
-                        validate_image(file.name, file.type, file.getvalue())
-                    except ValueError as exc:
-                        errors.append(str(exc))
-                if errors:
-                    for message in errors:
-                        st.error(message)
-                else:
-                    try:
-                        for file, code, name, role in mappings:
-                            path = _upload(client, file, "player-cards", code)
-                            client.table("players").upsert(
-                                {"player_code": code.strip(), "name": name.strip(), "playing_role": role.strip(), "card_image_path": path},
-                                on_conflict="player_code",
-                            ).execute()
-                        _flash("success", f"Saved {len(mappings)} player card(s).")
-                        st.rerun()
-                    except Exception as exc:
-                        st.error(_error(exc))
-    with create_tab:
-        st.caption("Create a consistent player card from a photo and editable player details.")
-        with st.form("create-card"):
-            photo = st.file_uploader("Player photo", type=["png", "jpg", "jpeg", "webp"])
-            code = st.text_input("Unique player ID")
-            name = st.text_input("Player name")
-            role = st.text_input("Playing role")
-            base = st.number_input("Base price (optional, BDT; use 0 for none)", min_value=0, step=1)
-            create = st.form_submit_button("Create and save player card", type="primary")
-        if create:
-            if not photo or not code.strip() or not name.strip() or not role.strip():
-                st.error("Photo, unique player ID, name and playing role are required.")
-            else:
-                try:
-                    validate_image(photo.name, photo.type, photo.getvalue())
-                    photo_path = _upload(client, photo, "player-photos", code)
-                    card = make_player_card(photo.getvalue(), name, role, int(base) or None)
-                    card_path = upload_asset(client, "auction-assets", f"player-cards/{slug(code)}-{uuid4().hex[:12]}.png", card, "image/png")
-                    client.table("players").insert(
-                        {"player_code": code.strip(), "name": name.strip(), "playing_role": role.strip(), "base_price": int(base) or None, "photo_path": photo_path, "card_image_path": card_path}
-                    ).execute()
-                    _flash("success", f"Created player and card for {name.strip()}.")
-                    st.rerun()
-                except (ValueError, AuctionError) as exc:
-                    st.error(str(exc))
-                except Exception as exc:
-                    st.error(_error(exc))
-    with edit_tab:
-        if not players:
-            st.info("No players to edit yet.")
-        else:
-            pid = st.selectbox("Player to edit", [p["id"] for p in players], format_func=lambda x: next(f"{p['player_code']} — {p['name']}" for p in players if p["id"] == x))
-            player = next(p for p in players if p["id"] == pid)
-            with st.form("edit-player"):
-                code = st.text_input("Unique player ID", value=player["player_code"])
-                name = st.text_input("Player name", value=player["name"])
-                role = st.text_input("Playing role", value=player.get("playing_role") or "")
-                base = st.number_input("Base price (BDT; 0 for none)", min_value=0, step=1, value=int(player.get("base_price") or 0))
-                replacement = st.file_uploader("Replace card image (optional)", type=["png", "jpg", "jpeg", "webp"])
-                save = st.form_submit_button("Save player changes", type="primary")
-            if save:
-                if not code.strip() or not name.strip():
-                    st.error("Player ID and name are required.")
-                else:
-                    try:
-                        values = {"player_code": code.strip(), "name": name.strip(), "playing_role": role.strip(), "base_price": int(base) or None}
-                        if replacement:
-                            values["card_image_path"] = _upload(client, replacement, "player-cards", code)
-                        client.table("players").update(values).eq("id", pid).execute()
-                        _flash("success", "Player details saved.")
-                        st.rerun()
-                    except Exception as exc:
-                        st.error(_error(exc))
-    with csv_tab:
-        st.download_button("Download example CSV template", TEMPLATE, "players-template.csv", "text/csv")
-        uploaded = st.file_uploader("Player details CSV", type=["csv"])
-        if uploaded and st.button("Validate and import CSV", type="primary"):
-            rows, errors = _validate_csv(uploaded.getvalue())
-            if errors:
-                st.error("CSV was not imported. Fix these validation errors:")
-                for message in errors:
-                    st.write(f"• {message}")
-            else:
-                try:
-                    client.table("players").upsert(rows, on_conflict="player_code").execute()
-                    _flash("success", f"Imported {len(rows)} player(s). Existing matching player IDs were updated.")
-                    st.rerun()
-                except Exception as exc:
-                    st.error(_error(exc))
-
-
-def _validate_csv(content: bytes) -> tuple[list[dict], list[str]]:
-    try:
-        text = content.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        return [], ["File must use UTF-8 encoding."]
-    try:
-        reader = csv.DictReader(StringIO(text))
-    except csv.Error as exc:
-        return [], [f"Could not read CSV: {exc}"]
-    required = {"player_id", "name", "playing_role", "base_price"}
-    if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
-        return [], ["Header must include player_id, name, playing_role and base_price."]
-    rows, errors, seen = [], [], set()
-    for line, raw in enumerate(reader, 2):
-        code, name = (raw.get("player_id") or "").strip(), (raw.get("name") or "").strip()
-        role, base_text = (raw.get("playing_role") or "").strip(), (raw.get("base_price") or "").strip()
-        if not code:
-            errors.append(f"Row {line}: player_id is required.")
-        elif code in seen:
-            errors.append(f"Row {line}: duplicate player_id '{code}' in this file.")
-        if not name:
-            errors.append(f"Row {line}: name is required.")
-        base = None
-        if base_text:
+    st.subheader("Upload Player Card")
+    st.caption("Upload predesigned player cards. A unique player ID is assigned automatically to every card.")
+    files = st.file_uploader(
+        "Player card",
+        type=["png", "jpg", "jpeg", "webp"],
+        accept_multiple_files=True,
+    )
+    if files and st.button("Upload Player Card", type="primary"):
+        errors = []
+        for file in files:
             try:
-                base = int(base_text)
-                if base < 0:
-                    raise ValueError
-            except ValueError:
-                errors.append(f"Row {line}: base_price must be a non-negative whole number or blank.")
-        if code and name:
-            rows.append({"player_code": code, "name": name, "playing_role": role, "base_price": base})
-            seen.add(code)
-    if not rows:
-        errors.append("CSV contains no player rows.")
-    return rows, errors
+                validate_image(file.name, file.type, file.getvalue())
+            except ValueError as exc:
+                errors.append(f"{file.name}: {exc}")
+        if errors:
+            for message in errors:
+                st.error(message)
+            return
+
+        try:
+            assigned_codes = []
+            for file in files:
+                code = _new_player_code()
+                path = _upload(client, file, "player-cards", code)
+                client.table("players").insert(
+                    {
+                        "player_code": code,
+                        "name": _player_label(file.name, code),
+                        "card_image_path": path,
+                    }
+                ).execute()
+                assigned_codes.append(code)
+            noun = "card" if len(files) == 1 else "cards"
+            _flash("success", f"Uploaded {len(files)} player {noun}. Assigned ID(s): {', '.join(assigned_codes)}")
+            st.rerun()
+        except Exception as exc:
+            st.error(_error(exc))
+
+    st.divider()
+    st.subheader("Remove Player")
+    if not players:
+        st.info("No players have been uploaded yet.")
+        return
+
+    player_id = st.selectbox(
+        "Player to remove",
+        [player["id"] for player in players],
+        format_func=lambda value: next(
+            f"{player['name']} ({player['player_code']})"
+            for player in players
+            if player["id"] == value
+        ),
+    )
+    selected = next(player for player in players if player["id"] == player_id)
+    confirmed = st.checkbox(
+        f"Permanently remove {selected['name']} ({selected['player_code']})",
+        key=f"confirm-remove-player-{player_id}",
+    )
+    if st.button("Remove Player", disabled=not confirmed):
+        try:
+            client.table("players").delete().eq("id", player_id).execute()
+            card_path = selected.get("card_image_path")
+            if card_path:
+                try:
+                    client.storage.from_("auction-assets").remove([card_path])
+                except Exception:
+                    pass
+            _flash("success", f"Removed {selected['name']} ({selected['player_code']}).")
+            st.rerun()
+        except Exception:
+            st.error("This player could not be removed. Players already used in auction history must be retained.")
 
 
 def _team_management(client: Any, teams: list[dict], players: list[dict]) -> None:
@@ -385,7 +324,7 @@ def _team_management(client: Any, teams: list[dict], players: list[dict]) -> Non
             bought = [p for p in players if p.get("winning_team_id") == team["id"] and p["status"] == "sold"]
             if bought:
                 st.dataframe(
-                    pd.DataFrame([{"Player ID": p["player_code"], "Player": p["name"], "Price (BDT)": p["final_price"]} for p in bought]),
+                    pd.DataFrame([{"Player ID": p["player_code"], "Player": p["name"], "Price (AUD)": p["final_price"]} for p in bought]),
                     hide_index=True,
                     use_container_width=True,
                 )
@@ -411,3 +350,23 @@ def _history(client: Any) -> None:
         f"auction-history-{datetime.now(timezone.utc).date().isoformat()}.csv",
         "text/csv",
     )
+
+
+def _reset_auction(client: Any) -> None:
+    st.subheader("Reset Auction")
+    st.warning(
+        "This permanently deletes every sale and all auction history, restores team budgets, "
+        "marks every player available, and clears the live player display. Player cards and teams are kept."
+    )
+    confirmed = st.checkbox(
+        "I understand this cannot be undone.",
+        key="confirm-reset-auction",
+    )
+    if st.button("Reset Everything", type="primary", disabled=not confirmed):
+        try:
+            client.rpc("reset_auction").execute()
+            st.session_state.pop("pending_sale_request", None)
+            _flash("success", "Auction reset complete. All players and teams are back to their starting state.")
+            st.rerun()
+        except Exception as exc:
+            st.error(_error(exc))

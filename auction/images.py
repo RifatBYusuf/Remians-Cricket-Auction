@@ -60,10 +60,9 @@ def make_player_card(photo_bytes: bytes, name: str, role: str, base_price: int |
     draw.text((600, 1240), name.strip().upper(), font=_font(68, True), anchor="mm", fill="#12233F")
     draw.text((600, 1325), role.strip(), font=_font(40), anchor="mm", fill="#355675")
     if base_price:
-        draw.text((600, 1448), f"BASE  ৳{base_price:,}", font=_font(38, True), anchor="mm", fill="white")
+        draw.text((600, 1448), f"BASE  ${base_price:,} AUD", font=_font(38, True), anchor="mm", fill="white")
     else:
         draw.text((600, 1448), "CRICKET PLAYER AUCTION", font=_font(34, True), anchor="mm", fill="white")
     output = BytesIO()
     canvas.save(output, "PNG", optimize=True)
     return output.getvalue()
-
