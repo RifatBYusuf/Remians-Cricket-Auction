@@ -16,12 +16,14 @@ begin
   set current_player_id=null, updated_at=clock_timestamp()
   where singleton=true;
 
-  select count(*)::integer into v_events_deleted from public.auction_events;
-  select count(*)::integer into v_sales_deleted from public.sales;
-  truncate table public.auction_events, public.sales restart identity;
+  delete from public.auction_events;
+  get diagnostics v_events_deleted = row_count;
 
-  update public.players set status='available' where status is distinct from 'available';
-  update public.teams set budget_remaining=budget_initial where budget_remaining is distinct from budget_initial;
+  delete from public.sales;
+  get diagnostics v_sales_deleted = row_count;
+
+  update public.players set status='available';
+  update public.teams set budget_remaining=budget_initial;
 
   return jsonb_build_object(
     'reset', true,

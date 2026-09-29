@@ -20,8 +20,8 @@ begin
   select count(*)::integer into v_sales_deleted from public.sales;
   truncate table public.auction_events, public.sales restart identity;
 
-  update public.players set status='available' where status is distinct from 'available';
-  update public.teams set budget_remaining=budget_initial where budget_remaining is distinct from budget_initial;
+  update public.players set status='available';
+  update public.teams set budget_remaining=budget_initial;
 
   return jsonb_build_object(
     'reset', true,
