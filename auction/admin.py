@@ -331,6 +331,7 @@ def _team_management(client: Any, teams: list[dict], players: list[dict]) -> Non
             else:
                 st.caption("No purchased players yet.")
 
+#yoo 
 
 def _history(client: Any) -> None:
     st.subheader("Transaction history")
