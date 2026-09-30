@@ -181,7 +181,7 @@ def _auction_control(client: Any, players: list[dict], teams: list[dict], curren
                 ).execute().data
                 st.session_state.pop("pending_sale_request", None)
                 suffix = " (duplicate request safely ignored)" if result and result.get("duplicate") else ""
-                _flash("success", f"Sale committed: {current['name']} → {team['name']} for {money(amount)}{suffix}.")
+                _flash("success", f"{current['name']} sold to {team['name']} for {money(amount)}{suffix}.")
                 st.rerun()
             except AuctionError as exc:
                 st.error(str(exc))

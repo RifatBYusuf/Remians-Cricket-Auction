@@ -81,10 +81,32 @@ def _safe(value: Any) -> str:
     return html.escape(str(value or ""))
 
 
+def _announce_sale(player: dict[str, Any] | None) -> None:
+    """Show each completed sale once per display session."""
+    session_key = "public_sale_announcement"
+    if not player or player.get("status") != "sold":
+        st.session_state.pop(session_key, None)
+        return
+
+    sale_key = (
+        player.get("id") or player.get("name"),
+        player.get("winning_team_id") or player.get("winning_team_name"),
+        player.get("sold_at") or player.get("final_price"),
+    )
+    if st.session_state.get(session_key) == sale_key:
+        return
+
+    player_name = str(player.get("name") or "Player")
+    team_name = str(player.get("winning_team_name") or "team")
+    st.toast(f"{player_name} sold to {team_name}", icon="🎉")
+    st.session_state[session_key] = sale_key
+
+
 def render_public(snapshot: dict[str, Any], client: Any | None = None) -> None:
     player = snapshot.get("player")
     teams = snapshot.get("teams", [])
     state = snapshot.get("state") or {}
+    _announce_sale(player)
     left, right = st.columns([65, 35], gap="large")
     with left:
         if not player:
