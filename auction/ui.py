@@ -101,9 +101,10 @@ def render_public(snapshot: dict[str, Any], client: Any | None = None) -> None:
                 card_html = f'<img class="player-image" src="{_safe(image_url)}" alt="Player card for {_safe(player["name"])}">'
             else:
                 card_html = '<div class="placeholder">🏏<br>PLAYER CARD<br><span style="font-size:1rem">IMAGE COMING SOON</span></div>'
-            detail = player.get("playing_role") or "Cricket player"
+            detail = player.get("playing_role") or ""
             if player.get("base_price"):
-                detail += f" &nbsp;•&nbsp; Base {money(player['base_price'])}"
+                separator = " &nbsp;•&nbsp; " if detail else ""
+                detail += f"{separator}Base {money(player['base_price'])}"
             if player.get("status") == "sold":
                 status_html = f'<div class="sold-banner">SOLD TO {_safe(player.get("winning_team_name"))} &nbsp;—&nbsp; {money(player.get("final_price"))}</div>'
             else:
