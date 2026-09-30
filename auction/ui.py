@@ -33,8 +33,8 @@ def inject_css() -> None:
   .player-meta {font-size:1.2rem;color:#54708d;font-weight:650}
   .sold-banner {margin-top:.7rem;background:linear-gradient(90deg,#138a43,#1ba758);color:white;border-radius:14px;
     padding:.8rem 1rem;font-size:clamp(1rem,2vw,1.5rem);font-weight:900;text-align:center}
-  div[data-testid="stToast"] {position:fixed;top:50%;left:50%;right:auto;bottom:auto;
-    transform:translate(-50%,-50%);width:min(72vw,700px);min-height:120px;padding:1.25rem 1.75rem;
+  div[data-testid="stToast"] {position:fixed;top:7.5rem;left:33%;right:auto;bottom:auto;
+    transform:translateX(-50%);width:min(52vw,700px);min-height:120px;padding:1.25rem 1.75rem;
     display:flex;align-items:center;justify-content:center;border:3px solid #fff;border-radius:22px;
     background:linear-gradient(135deg,#087b3d,#18a85c);color:#fff;
     box-shadow:0 18px 55px #061b2f80;z-index:100000}
@@ -55,7 +55,8 @@ def inject_css() -> None:
   .team-count{color:#657b91;font-weight:700}.updated{text-align:right;color:#6c8298;font-size:.8rem;margin-top:.5rem}
   [data-testid="stMetric"] {background:white;border:1px solid #dce6f0;padding:.8rem;border-radius:14px}
   div.stButton > button {border-radius:10px;font-weight:800}
-  @media (max-width:900px){.block-container{padding:.5rem 1rem}.brand-logo{width:54px;height:48px}}
+  @media (max-width:900px){.block-container{padding:.5rem 1rem}.brand-logo{width:54px;height:48px}
+    div[data-testid="stToast"] {top:6rem;left:50%;width:min(88vw,700px)}}
 </style>
 """,
         unsafe_allow_html=True,
