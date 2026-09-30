@@ -33,6 +33,14 @@ def inject_css() -> None:
   .player-meta {font-size:1.2rem;color:#54708d;font-weight:650}
   .sold-banner {margin-top:.7rem;background:linear-gradient(90deg,#138a43,#1ba758);color:white;border-radius:14px;
     padding:.8rem 1rem;font-size:clamp(1rem,2vw,1.5rem);font-weight:900;text-align:center}
+  div[data-testid="stToast"] {position:fixed;top:50%;left:50%;right:auto;bottom:auto;
+    transform:translate(-50%,-50%);width:min(86vw,900px);min-height:180px;padding:2rem 2.5rem;
+    display:flex;align-items:center;justify-content:center;border:4px solid #fff;border-radius:28px;
+    background:linear-gradient(135deg,#087b3d,#18a85c);color:#fff;
+    box-shadow:0 24px 80px #061b2f99;z-index:100000}
+  div[data-testid="stToast"] [data-testid="stMarkdownContainer"] p {
+    color:#fff;font-size:clamp(2rem,5vw,4.5rem);font-weight:950;line-height:1.12;text-align:center}
+  div[data-testid="stToast"] > div:first-child {font-size:clamp(2rem,5vw,4rem)}
   .status-banner {margin-top:.7rem;background:#edf2f7;color:#173b70;border-radius:14px;padding:.7rem 1rem;
     font-size:1.1rem;font-weight:800;text-align:center;text-transform:uppercase;letter-spacing:.08em}
   .score-title {font-weight:950;color:#173b70;font-size:1.5rem;margin:.1rem 0 .6rem}
