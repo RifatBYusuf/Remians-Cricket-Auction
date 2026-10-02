@@ -59,6 +59,21 @@ def _data_uri(path: Path) -> str:
     return f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode()}"
 
 
+def _team_logo(team: dict[str, Any], client: Any | None = None) -> str | None:
+    white_logos = {
+        "royal strikers": "Royal Strikers (white).jpeg",
+        "sydney avengers": "Sydney Avengers (White).jpeg",
+        "sydney chasers": "Sydney Chasers (White).jpeg",
+        "sydne chasers": "Sydney Chasers (White).jpeg",
+    }
+    filename = white_logos.get(" ".join(str(team.get("name", "")).lower().split()))
+    if filename:
+        path = Path(__file__).resolve().parents[1] / "Team logo" / filename
+        if path.is_file():
+            return _data_uri(path)
+    return storage_url(client, "auction-assets", team.get("logo_path")) if client else team.get("logo_path")
+
+
 def brand_header(admin: bool = False) -> None:
     logo_path = Path(__file__).resolve().parents[1] / "logo.jpg"
     logo = _data_uri(logo_path) if logo_path.exists() else ""
@@ -131,7 +146,7 @@ def render_public(snapshot: dict[str, Any], client: Any | None = None) -> None:
     with right:
         st.markdown('<div class="score-title">TEAM BALANCES</div>', unsafe_allow_html=True)
         for team_number, team in enumerate(teams, 1):
-            logo_url = storage_url(client, "auction-assets", team.get("logo_path")) if client else team.get("logo_path")
+            logo_url = _team_logo(team, client)
             logo = f'<img class="team-logo" src="{_safe(logo_url)}">' if logo_url else f'<div class="team-fallback">{_safe(team.get("name", "T")[:1])}</div>'
             st.markdown(
                 f'<div class="team-card team-card-{team_number}"><div class="team-row">{logo}<div><div class="team-name">{_safe(team["name"])}</div>'
