@@ -33,6 +33,7 @@ def _error(exc: Exception) -> str:
         "Insufficient team funds",
         "There is no sale to undo",
         "Auction has already been created",
+        "Cannot retract top-up: team has less than $500,000 AUD remaining. Undo a sale or add funds first",
     ):
         if friendly.lower() in text.lower():
             return friendly + "."
@@ -302,6 +303,7 @@ def _player_management(client: Any, players: list[dict]) -> None:
 
 def _team_management(client: Any, teams: list[dict], players: list[dict]) -> None:
     st.subheader("Teams and purchased players")
+    _budget_management(client, teams)
     for team in teams:
         with st.expander(f"{team['name']} — {money(team['budget_remaining'])}", expanded=True):
             with st.form(f"team-{team['id']}"):
@@ -332,6 +334,53 @@ def _team_management(client: Any, teams: list[dict], players: list[dict]) -> Non
                 st.caption("No purchased players yet.")
 
 #yoo 
+
+
+def _budget_management(client: Any, teams: list[dict]) -> None:
+    st.markdown("#### Add team funds")
+    team_names = {team["id"]: team["name"] for team in teams}
+    with st.form("team-budget-topup"):
+        team_id = st.selectbox("Team to receive funds", list(team_names), format_func=team_names.get)
+        add = st.form_submit_button("Add $500,000 AUD", type="primary")
+    if add:
+        try:
+            request_key = f"pending_topup_request-{team_id}"
+            request_id = st.session_state.setdefault(request_key, str(uuid4()))
+            client.rpc("add_team_budget", {"p_team_id": team_id, "p_request_id": request_id}).execute()
+            st.session_state.pop(request_key, None)
+            _flash("success", f"Added $500,000 AUD to {team_names[team_id]}.")
+            st.rerun()
+        except Exception as exc:
+            st.error(_error(exc))
+    try:
+        topups = client.table("team_budget_topups").select("*").order("added_at", desc=True).execute().data
+    except Exception:
+        st.error("Could not load budget top-ups. Apply the team_budget_topups database migration if this feature is new.")
+        return
+    active = [topup for topup in topups if not topup.get("retracted_at")]
+    if active:
+        st.markdown("#### Retract a top-up")
+        st.caption("Removes the selected $500,000 AUD addition. The team must have at least that much remaining.")
+        by_id = {topup["id"]: topup for topup in active}
+        topup_id = st.selectbox(
+            "Top-up to retract", list(by_id),
+            format_func=lambda value: f"{team_names.get(by_id[value]['team_id'], 'Team')} ? $500,000 AUD ? {by_id[value]['added_at']} ({value[:8]})",
+        )
+        if st.button("Retract $500,000 AUD top-up"):
+            try:
+                client.rpc("retract_team_budget", {"p_topup_id": topup_id}).execute()
+                _flash("success", f"Retracted $500,000 AUD from {team_names.get(by_id[topup_id]['team_id'], 'team')}.")
+                st.rerun()
+            except Exception as exc:
+                st.error(_error(exc))
+    if topups:
+        st.dataframe(pd.DataFrame([
+            {"Team": team_names.get(topup["team_id"], "Team"), "Amount (AUD)": topup["amount"],
+             "Added": topup["added_at"], "Status": "Retracted" if topup.get("retracted_at") else "Active"}
+            for topup in topups
+        ]), hide_index=True, use_container_width=True)
+    st.divider()
+
 
 def _history(client: Any) -> None:
     st.subheader("Transaction history")

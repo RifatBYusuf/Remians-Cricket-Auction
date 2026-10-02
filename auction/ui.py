@@ -31,16 +31,16 @@ def inject_css() -> None:
     background:linear-gradient(135deg,#173b70,#24599e);color:white;font-weight:900;font-size:2rem;padding:2rem}
   .player-name {font-size:clamp(1.8rem,3vw,3rem);font-weight:950;color:#12233f;margin:.65rem 0 .1rem}
   .player-meta {font-size:1.2rem;color:#54708d;font-weight:650}
-  .sold-banner {margin-top:.7rem;background:linear-gradient(90deg,#138a43,#1ba758);color:white;border-radius:14px;
+  .sold-banner {margin-top:.7rem;background:#edf2f7;color:#12233f;border-radius:14px;
     padding:.8rem 1rem;font-size:clamp(1rem,2vw,1.5rem);font-weight:900;text-align:center}
   .status-banner {margin-top:.7rem;background:#edf2f7;color:#173b70;border-radius:14px;padding:.7rem 1rem;
     font-size:1.1rem;font-weight:800;text-align:center;text-transform:uppercase;letter-spacing:.08em}
   .score-title {font-weight:950;color:#173b70;font-size:1.5rem;margin:.1rem 0 .6rem}
   .team-card {background:white;border-left:8px solid #159447;border-radius:18px;padding:1rem;margin-bottom:.8rem;
     box-shadow:0 9px 24px #173b7015;border-top:1px solid #e1e9f1;border-right:1px solid #e1e9f1;border-bottom:1px solid #e1e9f1}
-  .team-card-1 {background:rgba(179,229,197,.4)}
-  .team-card-2 {background:rgba(244,183,183,.4)}
-  .team-card-3 {background:rgba(246,225,145,.4)}
+  .team-card-1, .sold-banner-1 {background:rgba(179,229,197,.4)}
+  .team-card-2, .sold-banner-2 {background:rgba(244,183,183,.4)}
+  .team-card-3, .sold-banner-3 {background:rgba(246,225,145,.4)}
   .team-row{display:flex;align-items:center;gap:.8rem}.team-logo{width:66px;height:66px;object-fit:contain;border-radius:12px;background:#f0f4f8}
   .team-fallback{width:66px;height:66px;display:grid;place-items:center;border-radius:12px;background:#173b70;color:white;font-size:1.7rem;font-weight:950}
   .team-name{font-size:clamp(1.05rem,1.7vw,1.4rem);font-weight:900;color:#12233f}.team-balance{font-size:clamp(1.35rem,2.3vw,2rem);font-weight:950;color:#159447}
@@ -106,7 +106,18 @@ def render_public(snapshot: dict[str, Any], client: Any | None = None) -> None:
                 separator = " &nbsp;•&nbsp; " if detail else ""
                 detail += f"{separator}Base {money(player['base_price'])}"
             if player.get("status") == "sold":
-                status_html = f'<div class="sold-banner">SOLD TO {_safe(player.get("winning_team_name"))} &nbsp;—&nbsp; {money(player.get("final_price"))}</div>'
+                winning_team_number = next(
+                    (
+                        number for number, team in enumerate(teams, 1)
+                        if (
+                            team.get("id") == player["winning_team_id"]
+                            if player.get("winning_team_id")
+                            else team.get("name") == player.get("winning_team_name")
+                        )
+                    ),
+                    0,
+                )
+                status_html = f'<div class="sold-banner sold-banner-{winning_team_number}">SOLD TO {_safe(player.get("winning_team_name"))} &nbsp;—&nbsp; {money(player.get("final_price"))}</div>'
             else:
                 status_html = f'<div class="status-banner">{_safe(player.get("status", "available"))}</div>'
             player_html = (
