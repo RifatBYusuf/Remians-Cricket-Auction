@@ -26,8 +26,8 @@ def inject_css() -> None:
   .live-pill{font-weight:800;background:#e63946;padding:.45rem .8rem;border-radius:999px;white-space:nowrap}
   .player-panel {background:white;border:1px solid #dce6f0;border-radius:24px;padding:1rem;
     box-shadow:0 14px 35px #173b7018}
-  .player-image {display:block;width:100%;height:min(61vh,720px);object-fit:contain;border-radius:16px;background:#eef3f8}
-  .placeholder {height:min(61vh,720px);display:grid;place-items:center;text-align:center;border-radius:16px;
+  .player-image {display:block;width:100%;height:min(76.25vh,900px);object-fit:contain;border-radius:16px;background:#eef3f8}
+  .placeholder {height:min(76.25vh,900px);display:grid;place-items:center;text-align:center;border-radius:16px;
     background:linear-gradient(135deg,#173b70,#24599e);color:white;font-weight:900;font-size:2rem;padding:2rem}
   .player-name {font-size:clamp(1.8rem,3vw,3rem);font-weight:950;color:#12233f;margin:.65rem 0 .1rem}
   .player-meta {font-size:1.2rem;color:#54708d;font-weight:650}
@@ -100,7 +100,7 @@ def render_public(snapshot: dict[str, Any], client: Any | None = None) -> None:
     player = snapshot.get("player")
     teams = snapshot.get("teams", [])
     state = snapshot.get("state") or {}
-    left, right = st.columns([65, 35], gap="large")
+    left, right = st.columns([81.25, 18.75], gap="large")
     with left:
         if not player:
             player_html = (
