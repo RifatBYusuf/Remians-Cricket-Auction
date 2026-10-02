@@ -112,7 +112,6 @@ def render_public(snapshot: dict[str, Any], client: Any | None = None) -> None:
             player_html = (
                 '<div class="player-panel">'
                 f'{card_html}'
-                f'<div class="player-name">{_safe(player["name"])}</div>'
                 f'<div class="player-meta">{_safe(detail)}</div>'
                 f'{status_html}'
                 '</div>'
