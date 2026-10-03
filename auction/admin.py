@@ -131,16 +131,21 @@ def _auction_control(client: Any, players: list[dict], teams: list[dict], curren
     ids = [p["id"] for p in players]
     index = ids.index(current_id) if current_id in ids else 0
     select_col, _ = st.columns([3, 2])
+    search = select_col.text_input("Search players by name", placeholder="Type a name or player ID", key="auction-player-search").strip().casefold()
+    matching_ids = [p["id"] for p in players if search in p["name"].casefold() or search in p["player_code"].casefold()]
     selected_id = select_col.selectbox(
         "Select player",
-        ids,
-        index=index,
+        matching_ids,
+        index=matching_ids.index(current_id) if current_id in matching_ids else 0,
+        disabled=not matching_ids,
         format_func=lambda pid: next(f"{p['player_code']} — {p['name']} [{p['status']}]" for p in players if p["id"] == pid),
     )
+    if not matching_ids:
+        select_col.info("No players match your search.")
     prev_col, show_col, next_col, _ = st.columns([1, 1.4, 1, 4])
     if prev_col.button("← Previous", disabled=index <= 0):
         _set_current(client, ids[index - 1])
-    if show_col.button("Show selected", type="primary"):
+    if show_col.button("Show selected", type="primary", disabled=selected_id is None):
         _set_current(client, selected_id)
     if next_col.button("Next →", disabled=index >= len(ids) - 1):
         _set_current(client, ids[index + 1])
@@ -272,6 +277,26 @@ def _player_management(client: Any, players: list[dict]) -> None:
         st.info("No players have been uploaded yet.")
         return
 
+    st.warning("Removing all players permanently deletes their cards. If any player has auction history, reset the auction first in the Reset tab.")
+    remove_all_confirmed = st.checkbox("I understand this permanently removes all players and their cards.", key="confirm-remove-all-players")
+    if st.button("Remove all players", disabled=not remove_all_confirmed):
+        try:
+            client.table("players").delete().in_("id", [player["id"] for player in players]).execute()
+        except Exception:
+            st.error("Players could not be removed. If players have auction history, reset the auction first in the Reset tab, then try again.")
+        else:
+            paths = list({p["card_image_path"] for p in players if p.get("card_image_path")})
+            cleanup_failed = False
+            for offset in range(0, len(paths), 100):
+                try:
+                    client.storage.from_("auction-assets").remove(paths[offset:offset + 100])
+                except Exception:
+                    cleanup_failed = True
+            st.session_state.pop("pending_sale_request", None)
+            _flash("warning" if cleanup_failed else "success", "All players removed." + (" Some card files could not be deleted from storage." if cleanup_failed else ""))
+            st.rerun()
+
+    st.divider()
     player_id = st.selectbox(
         "Player to remove",
         [player["id"] for player in players],

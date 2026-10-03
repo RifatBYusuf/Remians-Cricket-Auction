@@ -45,6 +45,11 @@ def inject_css() -> None:
   .team-fallback{width:66px;height:66px;display:grid;place-items:center;border-radius:12px;background:#173b70;color:white;font-size:1.7rem;font-weight:950}
   .team-name{font-size:clamp(1.05rem,1.7vw,1.4rem);font-weight:900;color:#12233f}.team-balance{font-size:29px;font-weight:950;color:#159447;white-space:nowrap}
   .team-count{color:#657b91;font-weight:700}.updated{text-align:right;color:#6c8298;font-size:.8rem;margin-top:.5rem}
+  .balance-counter{display:block;height:1.2em;line-height:1.2;overflow:hidden;font-variant-numeric:tabular-nums}
+  .balance-frames{display:block;animation:balance-countdown 1.1s steps(24,end) forwards}
+  .balance-frame{display:block;height:1.2em;line-height:1.2}
+  @keyframes balance-countdown{from{transform:translateY(0)}to{transform:translateY(calc(-100% + 1.2em))}}
+  @media (prefers-reduced-motion:reduce){.balance-frames{animation:none;transform:translateY(calc(-100% + 1.2em))}}
   [data-testid="stMetric"] {background:white;border:1px solid #dce6f0;padding:.8rem;border-radius:14px}
   div.stButton > button {border-radius:10px;font-weight:800}
   @media (max-width:900px){.block-container{padding:.5rem 1rem}.brand-logo{width:54px;height:48px}}
@@ -96,6 +101,21 @@ def _safe(value: Any) -> str:
     return html.escape(str(value or ""))
 
 
+def _balance_html(team: dict[str, Any], previous: tuple[int, int] | None) -> str:
+    balance = int(team["budget_remaining"])
+    count = int(team.get("player_count", 0))
+    if previous is None or balance >= previous[0] or count <= previous[1]:
+        return money(balance)
+    frames = "".join(
+        f'<span class="balance-frame">{money(round(previous[0] + (balance - previous[0]) * (1 - (1 - step / 24) ** 3)))}</span>'
+        for step in range(25)
+    )
+    return (
+        f'<span class="balance-counter" role="img" aria-label="{money(balance)}">'
+        f'<span class="balance-frames" aria-hidden="true">{frames}</span></span>'
+    )
+
+
 def render_public(snapshot: dict[str, Any], client: Any | None = None) -> None:
     player = snapshot.get("player")
     teams = snapshot.get("teams", [])
@@ -144,15 +164,21 @@ def render_public(snapshot: dict[str, Any], client: Any | None = None) -> None:
         st.markdown(player_html, unsafe_allow_html=True)
     with right:
         st.markdown('<div class="score-title">TEAM BALANCES</div>', unsafe_allow_html=True)
+        previous_balances = st.session_state.get("public_team_balances", {})
+        current_balances = {}
         for team_number, team in enumerate(teams, 1):
+            team_key = str(team.get("id") or team["name"])
+            balance_html = _balance_html(team, previous_balances.get(team_key))
+            current_balances[team_key] = (int(team["budget_remaining"]), int(team.get("player_count", 0)))
             logo_url = _team_logo(team, client)
             logo = f'<img class="team-logo" src="{_safe(logo_url)}">' if logo_url else f'<div class="team-fallback">{_safe(team.get("name", "T")[:1])}</div>'
             st.markdown(
                 f'<div class="team-card team-card-{team_number}"><div class="team-row">{logo}<div><div class="team-name">{_safe(team["name"])}</div>'
-                f'<div class="team-balance">{money(team["budget_remaining"])}</div>'
+                f'<div class="team-balance">{balance_html}</div>'
                 f'<div class="team-count">{int(team.get("player_count", 0))} player(s) purchased</div></div></div></div>',
                 unsafe_allow_html=True,
             )
+        st.session_state["public_team_balances"] = current_balances
         if state.get("updated_at"):
             st.markdown(f'<div class="updated">Synced {state["updated_at"]}</div>', unsafe_allow_html=True)
 
