@@ -122,11 +122,13 @@ def render_public(snapshot: dict[str, Any], client: Any | None = None) -> None:
     state = snapshot.get("state") or {}
     left, right = st.columns([76.9925, 23.0075], gap="large")
     with left:
-        if not player:
+        if state.get("ended") or not player:
+            panel_text = "Auction ended" if state.get("ended") else "WAITING FOR THE NEXT PLAYER"
+            ready_text = "" if state.get("ended") else '<div class="player-name" style="text-align:center">Auction Ready</div>'
             player_html = (
                 '<div class="player-panel">'
-                '<div class="placeholder">WAITING FOR THE NEXT PLAYER</div>'
-                '<div class="player-name" style="text-align:center">Auction Ready</div>'
+                f'<div class="placeholder">{panel_text}</div>'
+                f'{ready_text}'
                 '</div>'
             )
         else:
@@ -175,7 +177,7 @@ def render_public(snapshot: dict[str, Any], client: Any | None = None) -> None:
             st.markdown(
                 f'<div class="team-card team-card-{team_number}"><div class="team-row">{logo}<div><div class="team-name">{_safe(team["name"])}</div>'
                 f'<div class="team-balance">{balance_html}</div>'
-                f'<div class="team-count">{int(team.get("player_count", 0))} player(s) purchased</div></div></div></div>',
+                f'<div class="team-count">{int(team.get("player_count", 0))} {"player" if int(team.get("player_count", 0)) == 1 else "players"} purchased</div></div></div></div>',
                 unsafe_allow_html=True,
             )
         st.session_state["public_team_balances"] = current_balances

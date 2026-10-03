@@ -101,7 +101,7 @@ def render_admin(client: Any) -> None:
         ["Auction control", "Players & cards", "Teams", "History & export", "Reset"]
     )
     with auction_tab:
-        _auction_control(client, players, teams, current_id)
+        _auction_control(client, players, teams, current_id, ended=bool(state_rows and state_rows[0].get("ended")))
     with players_tab:
         _player_management(client, players)
     with teams_tab:
@@ -121,8 +121,27 @@ def _set_current(client: Any, player_id: str) -> None:
         st.error(_error(exc))
 
 
-def _auction_control(client: Any, players: list[dict], teams: list[dict], current_id: str | None) -> None:
+def _auction_control(client: Any, players: list[dict], teams: list[dict], current_id: str | None, ended: bool = False) -> None:
     st.subheader("Live auction control")
+    if ended:
+        st.success("Auction ended. Show a player to resume the auction.")
+    if st.button("End Auction", disabled=ended):
+        try:
+            result = client.table("auction_state").update({
+                "ended": True,
+                "current_player_id": None,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("singleton", True).execute()
+            if not result.data:
+                raise RuntimeError("Auction state was not updated")
+            st.session_state.pop("pending_sale_request", None)
+            _flash("success", "Auction ended. The audience display has been updated.")
+            st.rerun()
+        except Exception as exc:
+            if "ended" in str(exc).lower():
+                st.error("Apply the auction_end_state database migration before ending the auction.")
+            else:
+                st.error(_error(exc))
     if not players:
         st.info("Upload player cards before starting the auction.")
         return
@@ -326,8 +345,25 @@ def _player_management(client: Any, players: list[dict]) -> None:
             st.error("This player could not be removed. Players already used in auction history must be retained.")
 
 
+def _teams_csv(teams: list[dict], players: list[dict]) -> bytes:
+    rows = []
+    for team in teams:
+        bought = [p for p in players if p.get("winning_team_id") == team["id"] and p["status"] == "sold"]
+        rows.extend({"Team name": team["name"], "Player": player["name"]} for player in bought)
+        if not bought:
+            rows.append({"Team name": team["name"], "Player": ""})
+    return pd.DataFrame(rows, columns=["Team name", "Player"]).to_csv(index=False).encode("utf-8-sig")
+
+
 def _team_management(client: Any, teams: list[dict], players: list[dict]) -> None:
     st.subheader("Teams and purchased players")
+    st.download_button(
+        "Export teams",
+        data=_teams_csv(teams, players),
+        file_name="auction-teams.csv",
+        mime="text/csv",
+        key="export-teams",
+    )
     _budget_management(client, teams)
     for team in teams:
         with st.expander(f"{team['name']} — {money(team['budget_remaining'])}", expanded=True):
