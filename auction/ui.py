@@ -43,7 +43,7 @@ def inject_css() -> None:
   .team-card-3, .sold-banner-3 {background:rgba(246,225,145,.4)}
   .team-row{display:flex;align-items:center;gap:.8rem}.team-logo{width:66px;height:66px;object-fit:contain;border-radius:12px;background:#f0f4f8}
   .team-fallback{width:66px;height:66px;display:grid;place-items:center;border-radius:12px;background:#173b70;color:white;font-size:1.7rem;font-weight:950}
-  .team-name{font-size:clamp(1.05rem,1.7vw,1.4rem);font-weight:900;color:#12233f}.team-balance{font-size:clamp(1.35rem,2.3vw,2rem);font-weight:950;color:#159447}
+  .team-name{font-size:clamp(1.05rem,1.7vw,1.4rem);font-weight:900;color:#12233f}.team-balance{font-size:clamp(1rem,1.4vw,1.25rem);font-weight:950;color:#159447;white-space:nowrap}
   .team-count{color:#657b91;font-weight:700}.updated{text-align:right;color:#6c8298;font-size:.8rem;margin-top:.5rem}
   [data-testid="stMetric"] {background:white;border:1px solid #dce6f0;padding:.8rem;border-radius:14px}
   div.stButton > button {border-radius:10px;font-weight:800}
@@ -106,8 +106,7 @@ def render_public(snapshot: dict[str, Any], client: Any | None = None) -> None:
             player_html = (
                 '<div class="player-panel">'
                 '<div class="placeholder">WAITING FOR THE NEXT PLAYER</div>'
-                '<div class="player-name">Auction ready</div>'
-                '<div class="player-meta">The selected player will appear here.</div>'
+                '<div class="player-name" style="text-align:center">Auction Ready</div>'
                 '</div>'
             )
         else:
